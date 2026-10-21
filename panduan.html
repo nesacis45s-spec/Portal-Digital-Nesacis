@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d9488"><link rel="manifest" href="manifest.json"><link rel="icon" href="favicon.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Panduan Penggunaan · NESACIS</title><link rel="stylesheet" href="portal.css">
+<style>video{width:100%;max-height:70vh;background:#000;border-radius:12px}ol{padding-left:1.2rem}li{margin:.35rem 0}.vh{display:flex}</style></head>
+<body>
+<header class="top"><b>▶ Panduan Penggunaan</b><span class="sp"></span><a href="index.html">Portal</a></header>
+<main>
+  <h1>Video Panduan Singkat</h1>
+  <p class="mut">Pilih peran Anda. Video diam dengan keterangan teks (1–1,5 menit); langkah tertulisnya ada di bawah video. Sorotan kuning menunjukkan bagian layar yang dibahas.</p>
+  <div class="tabs" id="tabs"><button data-t="guru">Untuk Guru</button><button data-t="murid">Untuk Murid</button><button data-t="admin">Untuk Admin</button></div>
+  <div class="card"><video id="v" controls playsinline preload="metadata"></video></div>
+  <div class="card"><h2 id="jd"></h2><ol id="st"></ol></div>
+</main>
+<script>
+const P={
+ guru:{t:'Panduan Guru',v:'video/panduan-guru.mp4',s:['Buka portal, tekan JELAJAHI, lalu pilih bola GURU.','Pilih Jurnal Harian Guru atau Ulangan Online, lalu masuk dengan username dan password dari admin.','Di Jurnal Guru, isi jurnal, absensi, dan nilai. Data tersimpan di perangkat dan disinkronkan otomatis.','Menu Materi Pembelajaran: pilih mata pelajaran (dan kelas bila perlu), isi judul, pilih berkas PDF atau HTML (maks. 6 MB), tekan Unggah.','Murid melihat materi itu sesuai mata pelajaran yang mereka pilih.','Hasil ulangan online masuk otomatis ke Nilai kategori “Ulangan” pada jurnal kelas yang sama. Menu Tarik Nilai Ulangan menjalankannya segera.','Di Ulangan Online: buat ulangan, bagikan kode, pantau siswa (tombol Lepas perangkat bila siswa harus pindah HP), lalu unduh hasil dan analisis butir soal dalam PDF atau Excel.']},
+ murid:{t:'Panduan Murid',v:'video/panduan-murid.mp4',s:['Buka portal, tekan JELAJAHI, lalu pilih bola MURID.','Pertama kali: pilih Daftar Akun. Username-mu adalah NISN; buat password sendiri (minimal 6 karakter).','Aku Ingin Belajar: pilih mata pelajaran, lalu tekan Buka pada materi.','Hasil Belajarku: lihat rata-rata nilai, kehadiran, dan hasil ulangan online.','Ujianku: pilih ulangan dari gurumu. Kerjakan di satu perangkat dan jangan berpindah tab: pelanggaran dicatat dan ujian bisa dikumpulkan otomatis.','Lupa password? Hubungi admin atau wali kelas.']},
+ admin:{t:'Panduan Admin',v:'video/panduan-admin.mp4',s:['Di halaman utama, tekan PORTAL ADMIN dan masuk dengan akun admin.','Ringkasan menampilkan jumlah data dan tautan ke 6 file database.','Akun Guru & Admin: tambah akun, atur ulang password, nonaktifkan, atau hapus.','Akun Murid: murid mendaftar sendiri; admin dapat mengubah kelas dan nomor absen.','Data Siswa (NISN): impor dari Excel. Bila terisi, hanya NISN di daftar ini yang bisa mendaftar.','Kenaikan Kelas: atur tujuan tiap kelas lalu jalankan sekaligus. Buat periode baru untuk tahun ajaran berikutnya.','Backup & Restore: atur cadangan otomatis, unduh backup lengkap, atau pulihkan dari cadangan.']}
+};
+const $=id=>document.getElementById(id);
+function tampil(k){
+  if(!P[k])k='guru';const d=P[k];
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===k));
+  $('jd').textContent=d.t;$('st').innerHTML=d.s.map(x=>`<li>${x.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</li>`).join('');
+  const v=$('v');v.pause();v.src=d.v;v.load();history.replaceState(null,'','#'+k);
+}
+$('tabs').onclick=e=>{const b=e.target.closest('[data-t]');if(b)tampil(b.dataset.t)};
+tampil(location.hash.slice(1));
+</script></body></html>

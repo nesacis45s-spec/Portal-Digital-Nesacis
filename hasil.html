@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d9488"><link rel="manifest" href="manifest.json"><link rel="icon" href="favicon.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Hasil Belajarku · NESACIS</title><link rel="stylesheet" href="portal.css"></head>
+<body>
+<header class="top"><b>📊 Hasil Belajarku</b><span class="sp"></span><span class="nm" id="nm"></span><a href="panduan.html#murid">Panduan</a><a href="index.html">Portal</a><button id="out" type="button">Keluar</button></header>
+<main>
+  <div class="row"><div class="grow"><h1 id="jd">Hasil Belajar</h1><div class="mut" id="sub"></div></div>
+    <div><label for="per" style="margin:0 0 3px">Tahun ajaran / semester</label><select id="per"></select></div></div>
+  <div id="err" class="msg err hid"></div><div id="load" class="empty">Memuat hasil belajarmu…</div>
+  <div id="isi" hidden>
+    <div class="card"><h2>Rata-rata nilai per mata pelajaran</h2><div class="grid" id="rata"></div></div>
+    <div class="card"><h2>Kehadiran</h2><div class="grid" id="hadir"></div><div class="tw" style="margin-top:12px"><table id="tabs"></table></div></div>
+    <div class="card"><h2>Nilai dari guru</h2><div class="tw"><table id="tn"></table></div></div>
+    <div class="card"><h2>Hasil ulangan online</h2><div class="tw"><table id="tu"></table></div></div>
+  </div>
+</main>
+<script src="config.js"></script><script src="nesacis.js"></script>
+<script>
+const $=id=>document.getElementById(id),S=NESACIS.wajib(['murid'],'murid');
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fm=n=>String(Math.round(n*100)/100).replace('.',',');
+const tgl=t=>{const d=new Date(t);return isNaN(d)?esc(t):d.toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})};
+if(S){$('nm').textContent=S.user.nama;$('out').onclick=()=>NESACIS.keluar('index.html');$('per').onchange=()=>muat($('per').value);muat('')}
+async function muat(per){
+  $('load').hidden=false;$('isi').hidden=true;$('err').classList.add('hid');
+  const r=await NESACIS.call('murid_hasil',per?{periode:per}:{});
+  $('load').hidden=true;
+  if(!r.ok){$('err').textContent=NESACIS.pesan(r.error);$('err').classList.remove('hid');return}
+  $('per').innerHTML=r.periodes.map(p=>`<option value="${esc(p.id)}" ${p.id===r.periode?'selected':''}>${esc(p.label)}</option>`).join('');
+  $('jd').textContent='Hasil Belajar '+r.siswa.nama;$('sub').textContent='NISN '+r.siswa.nisn+' · Kelas '+r.siswa.kelas+' · No. absen '+r.siswa.absen;
+  $('rata').innerHTML=r.rata.length?r.rata.map(x=>`<div class="tile" style="cursor:default"><span>${esc(x.mapel)}</span><div class="stat">${fm(x.rata)}</div><div class="bar"><i style="width:${Math.min(100,x.rata)}%"></i></div><span>${x.jumlah} nilai</span></div>`).join(''):(r.rekapAda?'<p class="empty">Belum ada nilai dari guru pada periode ini.</p>':'<p class="empty">Belum ada rekap nilai untukmu pada periode ini. Rekap muncul setelah gurumu menyimpan nilai atau absensi.</p>');
+  const t=r.absensi.total,jm=t.H+t.I+t.S+t.A;
+  $('hadir').innerHTML=jm?[['Hadir',t.H],['Izin',t.I],['Sakit',t.S],['Alpa',t.A]].map(a=>`<div class="tile" style="cursor:default"><span>${a[0]}</span><div class="stat">${a[1]}</div></div>`).join(''):'<p class="empty">Belum ada data kehadiran.</p>';
+  const pm=Object.keys(r.absensi.perMapel);
+  $('tabs').innerHTML=pm.length?'<thead><tr><th>Mata pelajaran</th><th>Hadir</th><th>Izin</th><th>Sakit</th><th>Alpa</th></tr></thead><tbody>'+pm.map(m=>{const a=r.absensi.perMapel[m];return `<tr><td>${esc(m)}</td><td>${a.H}</td><td>${a.I}</td><td>${a.S}</td><td>${a.A}</td></tr>`}).join('')+'</tbody>':'';
+  $('tn').innerHTML=r.nilai.length?'<thead><tr><th>Tanggal</th><th>Mata pelajaran</th><th>Jenis</th><th>Nilai</th><th>Guru</th><th>Ket.</th></tr></thead><tbody>'+r.nilai.map(n=>`<tr><td>${tgl(n.tanggal)}</td><td>${esc(n.mapel)}</td><td>${esc(n.kategori)}</td><td><b>${fm(n.nilai)}</b></td><td>${esc(n.guru)}</td><td>${esc(n.keterangan)}</td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Belum ada nilai.</td></tr></tbody>';
+  $('tu').innerHTML=r.ulangan.length?'<thead><tr><th>Tanggal</th><th>Ulangan</th><th>Mapel</th><th>Nilai</th><th>Benar/Salah/Kosong</th></tr></thead><tbody>'+r.ulangan.map(u=>`<tr><td>${tgl(u.waktu)}</td><td>${esc(u.judul)}</td><td>${esc(u.mapel)}</td><td>${u.tampil?`<b>${fm(u.nilai)}</b> <span class="badge ${u.nilai>=u.kkm?'ok':'bad'}">${u.nilai>=u.kkm?'Tuntas':'Belum tuntas'}</span>`:'<span class="mut">Disembunyikan guru</span>'}</td><td>${u.tampil?u.benar+' / '+u.salah+' / '+u.kosong:'-'}</td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Belum ada hasil ulangan.</td></tr></tbody>';
+  $('isi').hidden=false;
+}
+</script></body></html>
