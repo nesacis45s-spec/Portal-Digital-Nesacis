@@ -126,25 +126,11 @@ background:radial-gradient(circle at 32% 28%,#6fe3ff,#1a7bd6 55%,#12306e);box-sh
   <div class="apanel">
     <button class="aclose" type="button" id="aclose" aria-label="Tutup">×</button>
     <h3 id="at">Masuk</h3><p class="sub" id="as"></p>
-    <div class="atabs hid" id="atabs"><button type="button" data-m="login" class="on">Masuk</button><button type="button" data-m="daftar">Daftar Akun</button></div>
-
     <form id="f-login" autocomplete="on">
       <label for="l-user" id="l-ulabel">Username</label><input id="l-user" autocomplete="username" autocapitalize="none" spellcheck="false" required>
       <label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password" required>
       <button class="abtn" type="submit" id="l-btn">MASUK</button>
       <button class="alink hid" type="button" id="l-lupa">Lupa password?</button>
-    </form>
-
-    <form id="f-daftar" class="hid" autocomplete="off">
-      <label for="d-nisn">NISN (jadi username-mu)</label><input id="d-nisn" inputmode="numeric" maxlength="20" placeholder="Contoh: 0123456789" required>
-      <label for="d-nama">Nama lengkap</label><input id="d-nama" maxlength="60" autocapitalize="words" required>
-      <div class="arow"><div><label for="d-tingkat">Tingkat</label><select id="d-tingkat"><option>7</option><option>8</option><option>9</option></select></div>
-        <div><label for="d-huruf">Kelas</label><select id="d-huruf"></select></div>
-        <div><label for="d-absen">No. absen</label><input id="d-absen" type="number" min="1" max="99" required></div></div>
-      <label for="d-pass">Password pilihanmu</label><input id="d-pass" type="password" autocomplete="new-password" minlength="6" placeholder="Minimal 6 karakter" required>
-      <label for="d-pass2">Ulangi password</label><input id="d-pass2" type="password" autocomplete="new-password" required>
-      <p class="small-note">Jika NISN-mu sudah ada di data sekolah, nama, kelas, dan nomor absen akan diambil dari data sekolah.</p>
-      <button class="abtn" type="submit" id="d-btn">DAFTAR &amp; MASUK</button>
     </form>
 
     <form id="f-lupa" class="hid" autocomplete="off">
@@ -163,7 +149,7 @@ background:radial-gradient(circle at 32% 28%,#6fe3ff,#1a7bd6 55%,#12306e);box-sh
 <script>
 const DATA={
  guru:{t:"PORTAL GURU",s:"Selamat datang, Bapak/Ibu Guru",i:[["📘","Jurnal Harian Guru","Jurnal, absensi, nilai, dan Materi Pembelajaran","jurnalguru.html"],["📝","Ulangan Online","Buat dan kelola ulangan digital","ulangan.html"]]},
- murid:{t:"PORTAL MURID",s:"Selamat datang, siswa NESACIS",i:[["🚀","Aku Ingin Belajar","Materi dan pembelajaran dari guru","materi.html"],["📊","Hasil Belajarku","Lihat nilai, kehadiran, dan hasil ulangan","hasil.html"],["🎯","Ujianku","Kerjakan ulangan secara online","ulangan.html"]]},
+ murid:{t:"PORTAL MURID",s:"Belajar dan ujian tanpa login. Hasil Belajarku memakai NISN dan password.",i:[["🚀","Aku Ingin Belajar","Materi dari guru · tanpa login","materi.html",1],["📊","Hasil Belajarku","Nilai dan kehadiran · login NISN","hasil.html"],["🎯","Ujianku","Ulangan online · cukup kode ulangan","ulangan.html",1]]},
  admin:{t:"PORTAL ADMIN",s:"Kelola akun, data siswa, periode, dan backup",i:[["🛡️","Panel Admin","Akun guru & murid, data siswa, backup & restore","admin.html"]]}
 };
 const PERAN_OK={guru:['guru','admin'],murid:['murid'],admin:['admin']};
@@ -175,7 +161,7 @@ function enter(btn){
  if(busy)return;busy=true;
  const r=btn.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2,d=DATA[btn.dataset.role];
  ROLE=btn.dataset.role;$('#mt').textContent=d.t;$('#ms').textContent=d.s;refreshWho();
- $('#cards').innerHTML=d.i.map((c,k)=>`<a href="${c[3]}" class="card-m" style="transition-delay:${k*.1}s"><span class="ic">${c[0]}</span><b>${c[1]}</b><small>${c[2]}</small></a>`).join('');
+ $('#cards').innerHTML=d.i.map((c,k)=>`<a href="${c[3]}" ${c[4]?'data-open="1"':''} class="card-m" style="transition-delay:${k*.1}s"><span class="ic">${c[0]}</span><b>${c[1]}</b><small>${c[2]}</small></a>`).join('');
  light.style.left=x+'px';light.style.top=y+'px';
  // cahaya lembut: titik kecil -> membesar -> memudar (tidak menyilaukan)
  light.animate([{opacity:0,transform:'scale(.4)'},{opacity:.85,transform:'scale(1.2)',offset:.18},{opacity:.4,transform:'scale(40)',offset:.7},{opacity:0,transform:'scale(90)'}],{duration:1400,easing:'ease-in-out'});
@@ -197,12 +183,12 @@ function refreshWho(){
   w.innerHTML='Masuk sebagai <b></b> · '+s.user.peran+'<button type="button" id="keluar">Keluar</button>';
   w.querySelector('b').textContent=s.user.nama;
   $('#keluar').onclick=()=>{NESACIS.keluar('index.html')};
- }else w.textContent='Kamu akan diminta masuk saat membuka salah satu menu.';
+ }else w.textContent=ROLE==='murid'?'Aku Ingin Belajar dan Ujianku bisa dibuka tanpa login.':'Kamu akan diminta masuk saat membuka salah satu menu.';
 }
 $('#cards').addEventListener('click',e=>{
  const a=e.target.closest('a.card-m');if(!a)return;e.preventDefault();
  const s=NESACIS.session();
- if(s&&PERAN_OK[ROLE].includes(s.user.peran))location.href=a.getAttribute('href');else openAuth(ROLE,a.getAttribute('href'));
+ if(a.dataset.open||(s&&PERAN_OK[ROLE].includes(s.user.peran)))location.href=a.getAttribute('href');else openAuth(ROLE,a.getAttribute('href'));
 });
 
 // ---------- login / daftar / lupa password ----------
@@ -211,11 +197,9 @@ const NEXT_OK=/^[\w\-]+\.html(\?[^#\s]*)?(#\S*)?$/;
 function msg(t,k){amsg.className='amsg'+(t?' '+(k||'err'):'');amsg.textContent=t||''}
 function setMode(m){
  A.mode=m;msg('');
- $('#f-login').classList.toggle('hid',m!=='login');$('#f-daftar').classList.toggle('hid',m!=='daftar');$('#f-lupa').classList.toggle('hid',m!=='lupa');
- $('#atabs').classList.toggle('hid',!(A.role==='murid'&&m!=='lupa'));
- $('#atabs').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
- $('#at').textContent=m==='daftar'?'Daftar Akun Murid':m==='lupa'?'Lupa Password':({guru:'Masuk Guru',murid:'Masuk Murid',admin:'Masuk Admin'})[A.role];
- $('#as').textContent=m==='daftar'?'Buat akun dengan NISN dan password pilihanmu.':m==='lupa'?'':({guru:'Gunakan akun yang dibuat admin sekolah.',murid:'Username-mu adalah NISN.',admin:'Khusus pengelola aplikasi.'})[A.role];
+ $('#f-login').classList.toggle('hid',m!=='login');$('#f-lupa').classList.toggle('hid',m!=='lupa');
+ $('#at').textContent=m==='lupa'?'Lupa Password':({guru:'Masuk Guru',murid:'Hasil Belajarku',admin:'Masuk Admin'})[A.role];
+ $('#as').textContent=m==='lupa'?'':({guru:'Gunakan akun yang dibuat admin sekolah.',murid:'Masuk dengan NISN dan password dari sekolah. Lupa password? Hubungi admin atau wali kelas.',admin:'Khusus pengelola aplikasi.'})[A.role];
 }
 function openAuth(role,next){
  A.role=role;A.next=NEXT_OK.test(next||'')?next:'';
@@ -226,10 +210,8 @@ function openAuth(role,next){
 }
 function closeAuth(){$('#auth').classList.remove('on')}
 $('#aclose').onclick=closeAuth;$('#auth').addEventListener('click',e=>{if(e.target.id==='auth')closeAuth()});
-$('#atabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setMode(b.dataset.m)});
 $('#l-lupa').onclick=()=>{setMode('lupa');$('#g-id').value=$('#l-user').value};
 $('#g-back').onclick=()=>setMode('login');
-$('#d-huruf').innerHTML='ABCDEFGHI'.split('').map(h=>`<option>${h}</option>`).join('');
 function sibuk(btn,on,t){if(!btn.dataset.t)btn.dataset.t=btn.textContent;btn.disabled=on;btn.textContent=on?(t||'MEMPROSES…'):btn.dataset.t}
 function sukses(res){
  NESACIS.save(res);closeAuth();
@@ -241,15 +223,6 @@ $('#f-login').addEventListener('submit',async e=>{
  sibuk(b,false);
  if(!r.ok)return msg(NESACIS.pesan(r.error));
  $('#l-pass').value='';sukses(r);
-});
-$('#f-daftar').addEventListener('submit',async e=>{
- e.preventDefault();msg('');
- if($('#d-pass').value!==$('#d-pass2').value)return msg('Konfirmasi password tidak sama.');
- const b=$('#d-btn');sibuk(b,true,'MEMBUAT AKUN…');
- const r=await NESACIS.call('murid_daftar',{nisn:$('#d-nisn').value.trim(),nama:$('#d-nama').value,kelas:$('#d-tingkat').value+$('#d-huruf').value,absen:$('#d-absen').value,password:$('#d-pass').value},{tanpaToken:true,tanpaRedirect:true});
- sibuk(b,false);
- if(!r.ok)return msg(NESACIS.pesan(r.error));
- sukses(r);
 });
 $('#f-lupa').addEventListener('submit',async e=>{
  e.preventDefault();msg('');const b=$('#g-btn'),step2=!$('#g-step2').classList.contains('hid'),id=$('#g-id').value.trim();
