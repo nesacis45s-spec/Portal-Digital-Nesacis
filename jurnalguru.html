@@ -5065,7 +5065,7 @@ async function impUlangan(manual){
       if (h.baru) x.push(h.baru + " nilai ulangan masuk ke Nilai");
       if (!h.baru && manual) x.push("Tidak ada nilai ulangan baru");
       if (h.tanpaJurnal) x.push(h.tanpaJurnal + " hasil belum punya jurnal kelas/mapel yang cocok");
-      if (h.tanpaSiswa) x.push(h.tanpaSiswa + " siswa belum ada di Data Siswa (NISN)");
+      if (h.tanpaSiswa) x.push(h.tanpaSiswa + " siswa tidak cocok dengan Data Siswa (nama/NISN)");
       (h.baru ? notifySuccess : notifyWarning)(x.join(". ") + ".");
     }
   }catch(e){ if (manual) notifyError(describeNetError(e)); }
@@ -5074,13 +5074,16 @@ async function impUlangan(manual){
 function importUlanganKeNilai(hasil){
   const nm = t=>String(t||"").toLowerCase().replace(/\s+/g," ").trim(), kk = t=>String(t||"").toUpperCase().replace(/[\s.\-_]/g,""), nk = t=>String(t||"").replace(/\D/g,"").replace(/^0+/,"");
   let diimpor = new Set(); try{ diimpor = new Set(JSON.parse(localStorage.getItem(ulimpKey()) || "[]")); }catch(e){}
-  const stud = {}; appState.students.forEach(s=>{ if (nk(s.nisn)) stud[nk(s.nisn)] = s; });
+  const stud = {}, byNK = {}, byN = {};
+  appState.students.forEach(s=>{ if (nk(s.nisn)) stud[nk(s.nisn)] = s; (byNK[nm(s.nama) + "|" + kk(s.kelas)] = byNK[nm(s.nama) + "|" + kk(s.kelas)] || []).push(s); (byN[nm(s.nama)] = byN[nm(s.nama)] || []).push(s); });
+  // siswa tanpa login tidak punya NISN: cocokkan lewat nama + kelas (atau nama saja bila hanya satu siswa bernama itu)
+  const cari = h=>{ if (h.nisn) return stud[nk(h.nisn)]; const a = byNK[nm(h.nama) + "|" + kk(h.kelas)]; if (a && a.length === 1) return a[0]; const b = byN[nm(h.nama)]; return b && b.length === 1 ? b[0] : null; };
   const ada = new Set(appState.scores.filter(x=>x.kategori === "Ulangan").map(x=>x.journalId + "|" + nm(x.nama)));
   const hasilAkhir = { baru:0, tanpaJurnal:0, tanpaSiswa:0 };
   hasil.forEach(h=>{
-    const id = h.kode + "|" + nk(h.nisn);
+    const id = h.kode + "|" + (h.nisn ? nk(h.nisn) : "n:" + nm(h.nama) + "|" + kk(h.kelas));
     if (diimpor.has(id)) return;
-    const s = stud[nk(h.nisn)]; if (!s){ hasilAkhir.tanpaSiswa++; return; }
+    const s = cari(h); if (!s){ hasilAkhir.tanpaSiswa++; return; }
     const tgl = new Date(h.waktu || Date.now()).toLocaleDateString("sv-SE");
     const cocokMapel = j=>!h.mapel || !j.mataPelajaran || nm(j.mataPelajaran).includes(nm(h.mapel)) || nm(h.mapel).includes(nm(j.mataPelajaran));
     const j = appState.journals.filter(x=>kk(x.kelas) === kk(s.kelas || h.kelas) && String(x.tanggal) <= tgl && cocokMapel(x)).sort((a,b)=>String(b.tanggal).localeCompare(String(a.tanggal)))[0];
