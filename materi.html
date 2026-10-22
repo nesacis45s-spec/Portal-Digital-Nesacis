@@ -3,12 +3,13 @@
 <meta name="theme-color" content="#0d9488"><link rel="manifest" href="manifest.json"><link rel="icon" href="favicon.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Aku Ingin Belajar · NESACIS</title><link rel="stylesheet" href="portal.css"></head>
 <body>
-<header class="top"><b>🚀 Aku Ingin Belajar</b><span class="sp"></span><span class="nm" id="nm"></span><a href="panduan.html#murid">Panduan</a><a href="index.html">Portal</a><button id="out" type="button">Keluar</button></header>
+<header class="top"><b>🚀 Aku Ingin Belajar</b><span class="sp"></span><a href="panduan.html#murid">Panduan</a><a href="index.html">Portal</a></header>
 <main>
   <h1>Materi Pembelajaran</h1>
-  <p class="mut">Pilih mata pelajaran untuk melihat materi dari gurumu. Hanya materi untuk kelasmu yang tampil.</p>
+  <p class="mut">Tidak perlu login. Pilih kelasmu, lalu mata pelajaran, untuk melihat materi dari gurumu.</p>
   <div id="err" class="msg err hid"></div>
-  <div class="grid" id="mapel"></div>
+  <div class="card"><h2>1. Pilih tingkat kelas</h2><div class="row" id="tk"><button class="btn sec" data-k="7">Kelas 7</button><button class="btn sec" data-k="8">Kelas 8</button><button class="btn sec" data-k="9">Kelas 9</button></div></div>
+  <div id="langkah2" hidden><h2 style="margin:6px 0 10px">2. Pilih mata pelajaran</h2><div class="grid" id="mapel"></div></div>
   <div class="card" id="box" style="margin-top:16px" hidden>
     <div class="row"><h2 class="grow" id="jd" style="margin:0"></h2><input id="q" class="grow" placeholder="Cari judul materi…" style="max-width:260px"></div>
     <div id="list" style="margin-top:10px"></div>
@@ -16,18 +17,20 @@
 </main>
 <script src="config.js"></script><script src="nesacis.js"></script>
 <script>
-const $=id=>document.getElementById(id),S=NESACIS.wajib(['murid'],'murid');
+const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let ALL=[],MAPEL=[],JML={},PIL='';
-if(S){
-  $('nm').textContent=S.user.nama+' · '+S.user.kelas;
-  $('out').onclick=()=>NESACIS.keluar('index.html');
-  $('q').oninput=tampil;
-  muat();
-}
+const pub=(a,d,o)=>NESACIS.call(a,d,Object.assign({tanpaToken:true,tanpaRedirect:true},o||{}));   // tanpa token: tampilan siswa walau perangkat pernah dipakai login guru
+let ALL=[],MAPEL=[],JML={},PIL='',TK='';
+try{TK=localStorage.getItem('materi_tingkat')||''}catch(e){}
+$('tk').onclick=e=>{const b=e.target.closest('[data-k]');if(!b)return;TK=b.dataset.k;try{localStorage.setItem('materi_tingkat',TK)}catch(x){}PIL='';muat()};
+$('q').oninput=tampil;
+if(TK)muat();
 async function muat(){
-  const r=await NESACIS.call('materi_list',{});
-  if(!r.ok){$('err').textContent=NESACIS.pesan(r.error);$('err').classList.remove('hid');return}
+  document.querySelectorAll('#tk .btn').forEach(b=>b.classList.toggle('sec',b.dataset.k!==TK));
+  $('err').classList.add('hid');$('box').hidden=true;$('langkah2').hidden=false;
+  $('mapel').innerHTML='<p class="mut">Memuat…</p>';
+  const r=await pub('materi_list',{tingkat:TK});
+  if(!r.ok){$('err').textContent=NESACIS.pesan(r.error);$('err').classList.remove('hid');$('mapel').innerHTML='';return}
   ALL=r.materi;MAPEL=r.mapel;JML=r.jumlahPerMapel||{};
   $('mapel').innerHTML=MAPEL.map(m=>`<button class="tile${m===PIL?' on':''}" data-m="${esc(m)}"><b>${esc(m)}</b><span>${JML[m]||0} materi</span></button>`).join('');
 }
@@ -37,7 +40,7 @@ $('mapel').addEventListener('click',e=>{
   $('q').value='';tampil();$('box').scrollIntoView({behavior:'smooth',block:'start'});
 });
 function tampil(){
-  if(!PIL)return;$('box').hidden=false;$('jd').textContent=PIL;
+  if(!PIL)return;$('box').hidden=false;$('jd').textContent=PIL+' · Kelas '+TK;
   const q=$('q').value.trim().toLowerCase(),L=ALL.filter(m=>m.mapel===PIL&&(!q||m.judul.toLowerCase().includes(q)));
   $('list').innerHTML=L.length?L.map(m=>`<div class="card" style="margin:0 0 10px"><div class="row"><div class="grow"><b>${esc(m.judul)}</b>
     <div class="mut">${esc(m.guru)} · ${new Date(m.dibuat).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})} · <span class="badge ${m.tipe==='pdf'?'bad':'run'}">${m.tipe.toUpperCase()}</span></div></div>
@@ -46,7 +49,7 @@ function tampil(){
 $('list').addEventListener('click',async e=>{
   const b=e.target.closest('[data-b]');if(!b)return;
   const t=b.textContent;b.disabled=true;b.textContent='Membuka…';
-  const r=await NESACIS.call('materi_ambil',{id:b.dataset.b},{timeout:120000});
+  const r=await pub('materi_ambil',{id:b.dataset.b,tingkat:TK},{timeout:120000});
   b.disabled=false;b.textContent=t;
   if(!r.ok)return alert(NESACIS.pesan(r.error));
   buka(r);
@@ -57,7 +60,7 @@ function buka(r){
   v.innerHTML=`<div class="vh"><b>${esc(r.judul)}</b><a class="btn sm sec hid" id="vt" target="_blank" rel="noopener">Tab baru</a><button class="btn sm" id="vc">Tutup</button></div>`;
   const f=document.createElement('iframe');let url='';
   if(r.tipe==='pdf'){url=URL.createObjectURL(new Blob([by],{type:'application/pdf'}));f.src=url;const a=v.querySelector('#vt');a.href=url;a.classList.remove('hid')}
-  else{f.setAttribute('sandbox','allow-scripts allow-forms allow-popups allow-modals');f.srcdoc=new TextDecoder('utf-8').decode(by)}   // sandbox: materi HTML tak bisa mengakses akunmu
+  else{f.setAttribute('sandbox','allow-scripts allow-forms allow-popups allow-modals');f.srcdoc=new TextDecoder('utf-8').decode(by)}
   v.appendChild(f);document.body.appendChild(v);
   v.querySelector('#vc').onclick=()=>{v.remove();if(url)URL.revokeObjectURL(url)};
 }
