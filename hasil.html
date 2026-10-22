@@ -13,6 +13,7 @@
     <div class="card"><h2>Kehadiran</h2><div class="grid" id="hadir"></div><div class="tw" style="margin-top:12px"><table id="tabs"></table></div></div>
     <div class="card"><h2>Nilai dari guru</h2><div class="tw"><table id="tn"></table></div></div>
     <div class="card"><h2>Hasil ulangan online</h2><div class="tw"><table id="tu"></table></div></div>
+    <div class="card"><h2>Ganti password</h2><p class="mut">Disarankan mengganti password awal dari sekolah.</p><div class="row"><input id="p1" type="password" placeholder="Password lama" class="grow" autocomplete="current-password"><input id="p2" type="password" placeholder="Password baru (min. 6)" class="grow" autocomplete="new-password"><button class="btn" id="pw">Simpan</button></div><div id="pm"></div></div>
   </div>
 </main>
 <script src="config.js"></script><script src="nesacis.js"></script>
@@ -21,7 +22,7 @@ const $=id=>document.getElementById(id),S=NESACIS.wajib(['murid'],'murid');
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fm=n=>String(Math.round(n*100)/100).replace('.',',');
 const tgl=t=>{const d=new Date(t);return isNaN(d)?esc(t):d.toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})};
-if(S){$('nm').textContent=S.user.nama;$('out').onclick=()=>NESACIS.keluar('index.html');$('per').onchange=()=>muat($('per').value);muat('')}
+if(S){$('pw').onclick=async()=>{const x=await NESACIS.call('changePassword',{oldPassword:$('p1').value,newPassword:$('p2').value});$('pm').innerHTML=x.ok?'<div class="msg ok">Password diganti.</div>':'<div class="msg err">'+esc(NESACIS.pesan(x.error))+'</div>';if(x.ok){$('p1').value=$('p2').value=''}};$('nm').textContent=S.user.nama;$('out').onclick=()=>NESACIS.keluar('index.html');$('per').onchange=()=>muat($('per').value);muat('')}
 async function muat(per){
   $('load').hidden=false;$('isi').hidden=true;$('err').classList.add('hid');
   const r=await NESACIS.call('murid_hasil',per?{periode:per}:{});
