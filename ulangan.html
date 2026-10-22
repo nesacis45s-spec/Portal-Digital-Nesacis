@@ -449,18 +449,11 @@ details.analisis summary{cursor:pointer;font-weight:700;padding:.8rem 0}
         </div>
 
         <div id="box-pilih" class="form">
-          <label for="in-mapel">Mata pelajaran</label>
-          <select id="in-mapel"><option value="">Pilih mata pelajaran</option></select>
-          <label for="in-tingkat">Tingkat kelas</label>
-          <select id="in-tingkat"><option value="">Pilih tingkat</option></select>
-          <div id="daftar-ul" class="daftar-ul" aria-live="polite"><p class="petunjuk">Daftar ulangan akan tampil setelah mata pelajaran dan tingkat kelas dipilih.</p></div>
-          <details class="kode-alt" id="kode-alt"><summary>Punya kode ulangan?</summary>
-            <form class="form" id="form-kode" autocomplete="off" novalidate>
-              <label for="in-kode">Kode ulangan</label>
-              <input type="text" id="in-kode" class="kode-in" maxlength="10" placeholder="ABC123" autocapitalize="characters" spellcheck="false">
-              <button class="btn primary" id="btn-kode" type="submit">Lanjut</button>
-            </form>
-          </details>
+          <form class="form" id="form-kode" autocomplete="off" novalidate>
+            <label for="in-kode">Kode ulangan</label>
+            <input type="text" id="in-kode" class="kode-in" maxlength="10" placeholder="ABC123" autocapitalize="characters" autocomplete="off" spellcheck="false">
+            <button class="btn primary" id="btn-kode" type="submit">Lanjut</button>
+          </form>
           <p class="err" id="err-kode" role="alert"></p>
         </div>
 
@@ -473,9 +466,6 @@ details.analisis summary{cursor:pointer;font-weight:700;padding:.8rem 0}
             <div><label for="in-kelas" id="lb-kelas">Kelas</label><select id="in-kelas"><option value="">Pilih</option></select></div>
             <div><label for="in-absen">No. absen</label><select id="in-absen"><option value="">Pilih no.</option></select></div>
           </div>
-          <div id="wrap-kode-wajib" hidden style="margin:.2rem 0 .8rem"><label for="in-kode-wajib">Kode ulangan <span style="color:var(--bad,#dc2626)">*</span></label>
-            <input id="in-kode-wajib" type="text" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ketik kode dari gurumu" style="text-transform:uppercase;letter-spacing:.12em">
-            <small class="petunjuk">Walau ulangan dipilih dari daftar, kode dari gurumu tetap wajib diisi untuk memulai.</small></div>
           <label class="cek" for="in-setuju"><input type="checkbox" id="in-setuju"><span>Saya sudah membaca aturan dan akan mengerjakan sendiri dengan jujur.</span></label>
           <button class="btn primary" id="btn-mulai" type="submit" disabled>Mulai ulangan</button>
           <p class="err" id="err-daftar" role="alert"></p>
@@ -919,54 +909,20 @@ const fsKeluar = () => { const f = document.exitFullscreen || document.webkitExi
 const tersimpan = () => { try { const t = JSON.parse(localStorage.getItem('ulangan_sesi')); return t && SES && t.nisn === SES.user.nisn ? t : null; } catch (e) { return null; } };
 const NAMA_RE = /^[\p{L}\p{N}][\p{L}\p{M}\p{N}.' -]{2,59}$/u;
 
-/* ---------- pilih ulangan & pendaftaran ---------- */
-const PIL = { mapel: '', tingkat: '' };
-let _pilihanSiap = false, _seqDaftar = 0;
-function siapkanPilihan() {
-  if (_pilihanSiap) return; _pilihanSiap = true;
-  $('in-mapel').innerHTML += MAPEL.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
-  $('in-tingkat').innerHTML += TINGKAT.map(k => `<option value="${k}">Kelas ${k}</option>`).join('');
-  $('in-mapel').addEventListener('change', gantiPilihan); $('in-tingkat').addEventListener('change', gantiPilihan);
-}
-function gantiPilihan() {
-  PIL.mapel = $('in-mapel').value; PIL.tingkat = $('in-tingkat').value;
-  try { localStorage.setItem('ulangan_pilihan', JSON.stringify(PIL)); } catch (e) {}
-  $('err-kode').textContent = '';
-  if (PIL.mapel && PIL.tingkat) muatDaftar();
-  else $('daftar-ul').innerHTML = '<p class="petunjuk" style="margin:0">Daftar ulangan akan tampil setelah mata pelajaran dan tingkat kelas dipilih.</p>';
-}
-async function muatDaftar() {
-  const my = ++_seqDaftar;
-  $('daftar-ul').innerHTML = '<p class="petunjuk" style="margin:0"><span class="muat"></span>Memuat daftar ulangan…</p>';
-  let r = null;
-  for (let i = 0; i < 5; i++) {
-    try { r = await api('ul_publik', { mapel: PIL.mapel, tingkat: PIL.tingkat }, { diam: true }); } catch (e) { r = { ok: false, error: 'SERVER_SIBUK' }; }
-    if (my !== _seqDaftar) return;
-    if (r.ok || !String(r.error).startsWith('SERVER')) break;
-    $('daftar-ul').innerHTML = `<p class="petunjuk" style="margin:0"><span class="muat"></span>Server sedang ramai, mencoba lagi… (${i + 1}/5)</p>`;
-    await sleep(900 * (i + 1) * (0.7 + Math.random() * 0.6));
-    if (my !== _seqDaftar) return;
-  }
-  if (!r.ok) { $('daftar-ul').innerHTML = `<p class="err" style="margin:0">${esc(r.error === 'API_URL_KOSONG' ? PESAN.API_URL_KOSONG : 'Tidak dapat memuat daftar ulangan. Periksa internet, lalu pilih ulang.')}</p>`; return; }
-  S.daftar = r.ulangan;
-  if (!r.ulangan.length) { $('daftar-ul').innerHTML = '<p class="petunjuk" style="margin:0">Belum ada ulangan yang dibuka untuk pilihan ini. Tanyakan kepada gurumu.</p>'; return; }
-  $('daftar-ul').innerHTML = r.ulangan.map(u => `<div class="ul-pilih"><div><h3>${esc(u.judul)}</h3><div class="meta num">${esc(u.guru)} · ${u.jumlah} soal · ${u.durasi} menit</div></div><button class="btn primary small" type="button" data-pilih="${esc(u.ref)}">Pilih</button></div>`).join('');
-}
-$('daftar-ul').addEventListener('click', e => { const b = e.target.closest('[data-pilih]'); if (!b) return; const u = (S.daftar || []).find(x => x.ref === b.dataset.pilih); if (u) tampilForm(u); });
+/* ---------- kode ulangan & pendaftaran ---------- */
 $('form-kode').addEventListener('submit', e => { e.preventDefault(); const k = $('in-kode').value.trim().toUpperCase(); if (k) muatKodeLangsung(k); });
 $('btn-ganti-ul').addEventListener('click', () => { S.cfg = null; history.replaceState(null, '', location.pathname + location.hash); tampilPilih(); });
-['in-nama', 'in-kelas', 'in-absen', 'in-setuju', 'in-kode-wajib'].forEach(id => $(id).addEventListener('input', cekForm));
+['in-nama', 'in-kelas', 'in-absen', 'in-setuju'].forEach(id => $(id).addEventListener('input', cekForm));
 $('form-daftar').addEventListener('submit', e => { e.preventDefault(); mulaiBaru(); });
 $('btn-lanjut').addEventListener('click', lanjutkanSesi);
 
-const kodeWajib = () => $('in-kode-wajib').value.trim().toUpperCase();
 function cekForm() {
-  $('btn-mulai').disabled = !(S.akunOk !== false && NAMA_RE.test($('in-nama').value.trim()) && $('in-kelas').value && $('in-absen').value && $('in-setuju').checked && S.cfg && S.cfg.aktif && (!S.cfg.ref || kodeWajib().length >= 4));
+  $('btn-mulai').disabled = !(S.akunOk !== false && NAMA_RE.test($('in-nama').value.trim()) && $('in-kelas').value && $('in-absen').value && $('in-setuju').checked && S.cfg && S.cfg.aktif);
 }
-function langkah(n) { $('seg2').classList.toggle('on', n === 2); $('langkah-teks').textContent = n === 2 ? 'Langkah 2 dari 2 · Isi data diri' : 'Langkah 1 dari 2 · Pilih ulangan'; }
+function langkah(n) { $('seg2').classList.toggle('on', n === 2); $('langkah-teks').textContent = n === 2 ? 'Langkah 2 dari 2 · Periksa data diri' : 'Langkah 1 dari 2 · Masukkan kode ulangan'; }
 function tampilPilih() {
   langkah(1); $('box-pilih').hidden = false; $('form-daftar').hidden = true; $('info-ujian').hidden = true; $('err-kode').textContent = '';
-  $('judul-ujian').textContent = 'Ulangan Online'; $('sub-ujian').textContent = 'Pilih mata pelajaran dan tingkat kelas untuk melihat ulangan yang tersedia.'; document.title = 'Ulangan Online';
+  $('judul-ujian').textContent = 'Ulangan Online'; $('sub-ujian').textContent = 'Masukkan kode ulangan dari gurumu untuk memulai.'; document.title = 'Ulangan Online'; setTimeout(() => $('in-kode').focus(), 50);
 }
 function tampilForm(c) {
   S.cfg = c; langkah(2);
@@ -978,7 +934,6 @@ function tampilForm(c) {
   $('in-kelas').innerHTML = '<option value="">Pilih</option>' + c.kelas.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
   $('in-absen').innerHTML = '<option value="">Pilih no.</option>' + Array.from({ length: c.maxAbsen }, (_, i) => `<option value="${pad2(i + 1)}">${pad2(i + 1)}</option>`).join('');
   $('tutup-box').hidden = !!c.aktif; $('box-pilih').hidden = true; $('form-daftar').hidden = false; $('err-daftar').textContent = '';
-  $('wrap-kode-wajib').hidden = !c.ref; if (c.ref) $('in-kode-wajib').value = '';   // dipilih dari daftar: kode harus diketik
   isiDataAkun(c);
   cekForm(); window.scrollTo(0, 0);
 }
@@ -1007,20 +962,17 @@ async function muatKodeLangsung(kode) {
   }, 'Memuat…');
 }
 function initDaftar() {
-  siapkanPilihan();
   const t = tersimpan();
   $('lanjut-box').hidden = !t;
   if (t) $('lanjut-info').textContent = `${t.nama} · Kelas ${t.kelas} · No. ${t.absen}`;
   const kode = (new URLSearchParams(location.search).get('u') || '').trim().toUpperCase();
-  if (kode) { $('in-kode').value = kode; $('kode-alt').open = true; if (!S.cfg || S.cfg.kode !== kode) muatKodeLangsung(kode); return; }
+  if (kode) { $('in-kode').value = kode; if (!S.cfg || S.cfg.kode !== kode) muatKodeLangsung(kode); return; }
   if (S.cfg) return tampilForm(S.cfg);
   tampilPilih();
-  try { Object.assign(PIL, JSON.parse(localStorage.getItem('ulangan_pilihan')) || {}); } catch (e) {}
-  if (MAPEL.indexOf(PIL.mapel) >= 0 && TINGKAT.indexOf(PIL.tingkat) >= 0) { $('in-mapel').value = PIL.mapel; $('in-tingkat').value = PIL.tingkat; muatDaftar(); }
 }
 
 async function mulaiBaru() {
-  await mulaiSesi({ kode: S.cfg.kode || kodeWajib(), ref: S.cfg.ref || '', nama: $('in-nama').value.trim().replace(/\s+/g, ' '), kelas: S.cfg.tingkat + $('in-kelas').value, absen: $('in-absen').value, nisn: SES.user.nisn }, $('err-daftar'), $('btn-mulai'));
+  await mulaiSesi({ kode: S.cfg.kode, nama: $('in-nama').value.trim().replace(/\s+/g, ' '), kelas: S.cfg.tingkat + $('in-kelas').value, absen: $('in-absen').value, nisn: SES.user.nisn }, $('err-daftar'), $('btn-mulai'));
 }
 async function lanjutkanSesi() { const t = tersimpan(); if (t) await mulaiSesi(t, $('err-daftar'), $('btn-lanjut')); }
 
