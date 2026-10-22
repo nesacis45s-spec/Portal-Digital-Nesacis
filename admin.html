@@ -55,28 +55,94 @@ async function vRingkasan(){
 }
 
 /* ---------- akun ---------- */
-let AK=[];
+
+/* ---------- daftar dengan filter, urutan, dan halaman ---------- */
+const alamiah=(a,b)=>String(a).localeCompare(String(b),'id',{numeric:true,sensitivity:'base'});
+const tingkatDari=k=>{const c=String(k||'').charAt(0);return '789'.includes(c)&&c?c:''};
+const opsiHtml=(arr,sel)=>arr.map(([v,l])=>`<option value="${esc(v)}" ${String(v)===String(sel)?'selected':''}>${esc(l)}</option>`).join('');
+const unik=(arr,f)=>[...new Set(arr.map(f).filter(Boolean))].sort(alamiah);
+function buatDaftar(c){
+  /* c: items(), cari(item), saring:[{id,label,opsi(all,F)->[[v,l]],cocok(item,v)}], urut:{key:[label,cmp]}, kepala, kolom, baris(item), kosong, placeholder, satuan */
+  const F={q:'',page:1,size:50,urut:Object.keys(c.urut)[0]};c.saring.forEach(x=>F[x.id]='');
+  const norm=t=>String(t==null?'':t).toLowerCase();
+  const aktifJml=()=>c.saring.filter(x=>F[x.id]).length+(F.q.trim()?1:0);
+  function bar(){
+    const all=c.items();
+    const sel=c.saring.map(x=>{const o=[['','Semua']].concat(x.opsi(all,F));if(!o.some(y=>String(y[0])===F[x.id]))F[x.id]='';
+      return `<div><label>${x.label}</label><select data-f="${x.id}">${opsiHtml(o,F[x.id])}</select></div>`}).join('');
+    $('fbar').innerHTML=`<div class="fgrid"><div style="grid-column:span 2"><label>Cari</label><input data-q placeholder="${esc(c.placeholder)}" value="${esc(F.q)}" autocomplete="off"></div>${sel}
+      <div><label>Urutkan</label><select data-u>${opsiHtml(Object.keys(c.urut).map(k=>[k,c.urut[k][0]]),F.urut)}</select></div>
+      <div><label>Per halaman</label><select data-s>${opsiHtml([25,50,100,200].map(n=>[n,n]),F.size)}</select></div>
+      <div><button class="btn sec" data-reset ${aktifJml()?'':'disabled'}>Reset filter${aktifJml()?' ('+aktifJml()+')':''}</button></div></div>`;
+  }
+  function render(){
+    const all=c.items(),q=norm(F.q).split(/\s+/).filter(Boolean);
+    const L=all.filter(it=>{if(q.length){const h=norm(c.cari(it));if(!q.every(t=>h.includes(t)))return false}return c.saring.every(x=>!F[x.id]||x.cocok(it,F[x.id]))});
+    L.sort(c.urut[F.urut][1]);
+    const hal=Math.max(1,Math.ceil(L.length/F.size));if(F.page>hal)F.page=hal;
+    const a=(F.page-1)*F.size,b=Math.min(L.length,a+F.size);
+    $('t').innerHTML=c.kepala+'<tbody>'+(L.length?L.slice(a,b).map(c.baris).join(''):`<tr><td colspan="${c.kolom}" class="empty">${aktifJml()?'Tidak ada '+c.satuan+' yang cocok dengan filter.':c.kosong}</td></tr>`)+'</tbody>';
+    $('fsum').innerHTML=L.length?`Menampilkan <b>${a+1}–${b}</b> dari <b>${L.length}</b> ${c.satuan}${L.length!==all.length?` (total ${all.length})`:''}`:`0 ${c.satuan} dari total ${all.length}`;
+    const pg=`<div class="pg"><button class="btn sec sm" data-p="1" ${F.page<=1?'disabled':''}>«</button><button class="btn sec sm" data-p="${F.page-1}" ${F.page<=1?'disabled':''}>‹ Sebelumnya</button><span class="mut">Hal. ${F.page} / ${hal}</span><button class="btn sec sm" data-p="${F.page+1}" ${F.page>=hal?'disabled':''}>Berikutnya ›</button><button class="btn sec sm" data-p="${hal}" ${F.page>=hal?'disabled':''}>»</button></div>`;
+    $('fpg').innerHTML=pg;$('fpg2').innerHTML=hal>1?pg:'';
+  }
+  const host=$('lst');
+  host.onchange=e=>{const t=e.target;
+    if(t.dataset.f){F[t.dataset.f]=t.value;F.page=1;bar();render()}
+    else if(t.dataset.u!==undefined){F.urut=t.value;F.page=1;render()}
+    else if(t.dataset.s!==undefined){F.size=Number(t.value);F.page=1;render()}};
+  host.oninput=e=>{if(e.target.dataset.q!==undefined){F.q=e.target.value;F.page=1;render();const r=host.querySelector('[data-reset]');if(r){r.disabled=!aktifJml();r.textContent='Reset filter'+(aktifJml()?' ('+aktifJml()+')':'')}}};
+  host.onclick=e=>{const b=e.target.closest('[data-p],[data-reset]');if(!b||b.disabled)return;
+    if(b.dataset.reset!==undefined){F.q='';c.saring.forEach(x=>F[x.id]='');F.page=1;bar();render()}
+    else{F.page=Number(b.dataset.p);render();$('t').parentNode.scrollTop=0}};
+  bar();render();
+  return {segarkan(){bar();render()}};
+}
+const barisAtas=()=>'<div id="lst"><div class="card fbar"><div id="fbar"></div></div><div class="row" style="margin:0 0 6px"><span class="mut grow" id="fsum"></span><div id="fpg"></div></div>';
+const barisBawah='<div id="fpg2" style="margin-top:8px"></div></div>';
+
+let AK=[],LST=null;
 async function vAkun(peran){
   const r=await call('ad_akun_list',{peran});if(!r.ok)return $('view').innerHTML=`<div class="msg err">${esc(pesan(r))}</div>`;
   AK=r.akun;const m=peran==='murid';
   $('view').innerHTML=`<div class="row"><h1 class="grow" style="margin:0">${m?'Akun Murid':'Akun Guru & Admin'} <span class="mut">(${AK.length})</span></h1>
-   <input id="q" placeholder="Cari…" style="max-width:220px"><button class="btn" id="add">+ Tambah akun</button></div>
+   <button class="btn" id="add">+ Tambah akun</button></div>
    ${m?'<p class="mut">Akun murid dipakai untuk melihat <b>Hasil Belajarku</b> (login NISN). Tidak ada pendaftaran mandiri: buat akun satu per satu di sini, atau sekaligus lewat Data Siswa &gt; <b>Buat akun murid</b>. Materi dan ulangan tidak memerlukan akun.</p>':'<p class="mut">Guru tidak dapat mendaftar sendiri; akun dibuat di sini. Isi email agar guru bisa memakai fitur “Lupa password”.</p>'}
-   <div class="tw" style="margin-top:10px"><table id="t"></table></div>`;
-  const tampil=()=>{const q=$('q').value.toLowerCase(),L=AK.filter(a=>!q||[a.username,a.nama,a.email,a.kelas].join(' ').toLowerCase().includes(q)).slice(0,300);
-    $('t').innerHTML=`<thead><tr><th>${m?'NISN':'Username'}</th><th>Nama</th><th>${m?'Kelas / Absen':'Peran / Email'}</th>${m?'':'<th>Ulangan</th>'}<th>Status</th><th></th></tr></thead><tbody>`+(L.length?L.map(a=>`<tr><td>${esc(a.username)}</td><td>${esc(a.nama)}</td>
+   ${barisAtas()}<div class="tw tall"><table id="t"></table></div>${barisBawah}`;
+  const kepalaT=`<thead><tr><th>${m?'NISN':'Username'}</th><th>Nama</th><th>${m?'Kelas / Absen':'Peran / Email'}</th>${m?'':'<th>Ulangan</th>'}<th>Status</th><th></th></tr></thead>`;
+  const lst=buatDaftar({items:()=>AK,placeholder:m?'NISN, nama, kelas…':'username, nama, email…',satuan:'akun',kosong:'Belum ada akun.',kolom:m?5:6,kepala:kepalaT,
+    cari:a=>[a.username,a.nama,a.email,a.kelas,a.nisn].join(' '),
+    saring:m?[
+      {id:'tk',label:'Tingkat',opsi:()=>[['7','Kelas 7'],['8','Kelas 8'],['9','Kelas 9']],cocok:(a,v)=>tingkatDari(a.kelas)===v},
+      {id:'kl',label:'Kelas',opsi:(all,F)=>unik(all.filter(a=>!F.tk||tingkatDari(a.kelas)===F.tk),a=>a.kelas).map(k=>[k,k]),cocok:(a,v)=>a.kelas===v},
+      {id:'st',label:'Status',opsi:()=>[['aktif','Aktif'],['nonaktif','Nonaktif']],cocok:(a,v)=>v==='aktif'?a.aktif:!a.aktif},
+      {id:'ab',label:'Nomor absen',opsi:()=>[['kosong','Belum diisi'],['isi','Sudah diisi']],cocok:(a,v)=>v==='kosong'?!a.absen:!!a.absen}
+    ]:[
+      {id:'pr',label:'Peran',opsi:()=>[['guru','Guru'],['admin','Admin']],cocok:(a,v)=>a.peran===v},
+      {id:'st',label:'Status',opsi:()=>[['aktif','Aktif'],['nonaktif','Nonaktif']],cocok:(a,v)=>v==='aktif'?a.aktif:!a.aktif},
+      {id:'em',label:'Email',opsi:()=>[['kosong','Belum diisi'],['isi','Sudah diisi']],cocok:(a,v)=>v==='kosong'?!a.email:!!a.email},
+      {id:'ul',label:'Ulangan',opsi:()=>[['ada','Punya ulangan'],['nol','Belum punya']],cocok:(a,v)=>v==='ada'?a.ulangan>0:a.ulangan===0}
+    ],
+    urut:m?{kelas:['Kelas & absen',(a,b)=>(!a.kelas)-(!b.kelas)||alamiah(a.kelas,b.kelas)||(Number(a.absen)||999)-(Number(b.absen)||999)||alamiah(a.nama,b.nama)],nama:['Nama A-Z',(a,b)=>alamiah(a.nama,b.nama)],nisn:['NISN',(a,b)=>alamiah(a.username,b.username)],baru:['Terbaru dibuat',(a,b)=>b.dibuat-a.dibuat]}
+      :{nama:['Nama A-Z',(a,b)=>alamiah(a.nama,b.nama)],user:['Username',(a,b)=>alamiah(a.username,b.username)],ul:['Jumlah ulangan',(a,b)=>b.ulangan-a.ulangan],baru:['Terbaru dibuat',(a,b)=>b.dibuat-a.dibuat]},
+    baris:a=>`<tr><td>${esc(a.username)}</td><td>${esc(a.nama)}</td>
      <td>${m?esc(a.kelas)+' / '+esc(a.absen):`<span class="badge ${a.peran==='admin'?'run':''}">${a.peran}</span> ${esc(a.email)}`}</td>${m?'':`<td>${a.ulangan}</td>`}
      <td><span class="badge ${a.aktif?'ok':'bad'}">${a.aktif?'Aktif':'Nonaktif'}</span></td>
      <td style="white-space:nowrap"><button class="btn sm sec" data-a="ubah" data-u="${esc(a.username)}">Ubah</button> <button class="btn sm sec" data-a="reset" data-u="${esc(a.username)}">Reset sandi</button>
-     ${a.username===S.user.username?'':`<button class="btn sm sec" data-a="aktif" data-u="${esc(a.username)}">${a.aktif?'Nonaktifkan':'Aktifkan'}</button> <button class="btn sm bad" data-a="hapus" data-u="${esc(a.username)}">Hapus</button>`}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">Belum ada akun.</td></tr>')+'</tbody>'};
-  tampil();$('q').oninput=tampil;
+     ${a.username===S.user.username?'':`<button class="btn sm sec" data-a="aktif" data-u="${esc(a.username)}">${a.aktif?'Nonaktifkan':'Aktifkan'}</button> <button class="btn sm bad" data-a="hapus" data-u="${esc(a.username)}">Hapus</button>`}</td></tr>`});
+  LST=lst;
+
   $('add').onclick=()=>formAkun(null,peran);
   $('t').onclick=e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=AK.find(x=>x.username===b.dataset.u),k=b.dataset.a;
     if(k==='ubah')formAkun(a,peran);
     if(k==='reset')modal(`<h2>Reset password ${esc(a.username)}</h2><label>Password baru (min. 6 karakter)</label><input name="pw" autocomplete="off" minlength="6" required>`,async v=>{const r=await call('ad_akun_reset',{username:a.username,password:v.pw});if(!r.ok)return pesan(r)});
-    if(k==='aktif')call('ad_akun_aktif',{username:a.username,aktif:!a.aktif}).then(r=>r.ok?vAkun(peran):info('Gagal',esc(pesan(r))));
-    if(k==='hapus')konfirm('Hapus akun '+a.username+'?',m?'Akun murid dihapus. Hasil ulangan tetap tersimpan. Murid dapat mendaftar ulang.':'Ulangan milik akun ini dipindahkan ke akun Anda. Data jurnal guru tetap tersimpan di spreadsheet.',async()=>{const r=await call('ad_akun_hapus',{username:a.username});if(!r.ok)return pesan(r);vAkun(peran)});
+    if(k==='aktif')call('ad_akun_aktif',{username:a.username,aktif:!a.aktif}).then(r=>r.ok?segarAkun(peran):info('Gagal',esc(pesan(r))));
+    if(k==='hapus')konfirm('Hapus akun '+a.username+'?',m?'Akun murid dihapus. Hasil ulangan tetap tersimpan. Murid dapat mendaftar ulang.':'Ulangan milik akun ini dipindahkan ke akun Anda. Data jurnal guru tetap tersimpan di spreadsheet.',async()=>{const r=await call('ad_akun_hapus',{username:a.username});if(!r.ok)return pesan(r);segarAkun(peran)});
   };
+}
+async function segarAkun(peran){   // muat ulang data tetapi pertahankan filter, urutan, dan halaman
+  const r=await call('ad_akun_list',{peran});if(!r.ok)return info('Gagal',esc(pesan(r)));
+  AK=r.akun;const h=document.querySelector('h1 .mut');if(h)h.textContent='('+AK.length+')';if(LST)LST.segarkan();
 }
 function formAkun(a,peran){
   const m=peran==='murid',baru=!a;
@@ -88,15 +154,15 @@ function formAkun(a,peran){
        <label>Peran</label><select name="peran">${['guru','admin'].map(p=>`<option ${a&&a.peran===p?'selected':''}>${p}</option>`).join('')}</select>`}
    ${baru?'<label>Password awal (min. 6 karakter)</label><input name="password" minlength="6" required autocomplete="off">':''}`,
   async v=>{const d=Object.assign({},v,{peran:m?'murid':v.peran});if(m)d.nisn=v.username;
-    const r=await call(baru?'ad_akun_tambah':'ad_akun_ubah',d);if(!r.ok)return pesan(r);vAkun(peran)});
+    const r=await call(baru?'ad_akun_tambah':'ad_akun_ubah',d);if(!r.ok)return pesan(r);segarAkun(peran)});
 }
 
 /* ---------- data siswa ---------- */
 async function vSiswa(){
   $('view').innerHTML=`<h1>Data Siswa (NISN)</h1><p class="mut">Daftar resmi siswa sekolah. Dipakai untuk membuat akun murid dan sebagai sumber “Ambil dari Spreadsheet” di Jurnal Guru. Kolom <b>Guru</b> (opsional) membatasi baris itu hanya untuk guru bersangkutan (username/email, pisahkan koma).</p>
   <div class="card"><div class="row"><button class="btn" id="imp">Impor Excel / CSV</button><button class="btn sec" id="tpl">Unduh format</button><button class="btn sec" id="jr">Tarik dari data jurnal guru</button><button class="btn" id="bam">Buat akun murid</button><button class="btn sec" id="del" style="margin-left:auto;color:var(--bad)">Hapus semua</button></div><input type="file" id="fi" accept=".xlsx,.xls,.csv" hidden><div id="sm"></div></div>
-  <div class="row" style="margin:6px 0"><input id="q" class="grow" placeholder="Cari NISN / nama / kelas…"><span class="mut" id="jml"></span></div><div class="tw"><table id="t"></table></div>`;
-  $('q').oninput=muat;$('imp').onclick=()=>$('fi').click();$('fi').onchange=impor;
+  <div class="mut" id="jml"></div>${barisAtas()}<div class="tw tall"><table id="t"></table></div>${barisBawah}`;
+  SWL=null;$('imp').onclick=()=>$('fi').click();$('fi').onchange=impor;
   $('tpl').onclick=async()=>{await xlsx();const ws=XLSX.utils.aoa_to_sheet([['NIS','NISN','Nama','Jenis Kelamin','Kelas','Absen','Guru'],['1234','0123456789','Contoh Siswa','L','9A','1','']]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siswa');XLSX.writeFile(wb,'Format_Data_Siswa.xlsx')};
   $('jr').onclick=()=>konfirm('Tarik dari data jurnal guru','Semua siswa yang sudah diimpor guru di periode aktif akan ditambahkan ke daftar ini (data yang sudah ada tidak ditimpa).',async()=>{const r=await call('ad_siswa_dari_jurnal',{},{timeout:120000});if(!r.ok)return pesan(r);$('sm').innerHTML=`<div class="msg ok">${r.baru} siswa baru, ${r.ubah} dilengkapi, dari ${r.guru} guru.</div>`;muat()});
   $('del').onclick=()=>konfirm('Hapus semua data siswa?','Hanya daftar NISN yang dihapus. Akun murid tidak ikut terhapus.',async()=>{const r=await call('ad_siswa_hapus',{semua:true,konfirmasi:'HAPUS'});if(!r.ok)return pesan(r);muat()},'HAPUS');
@@ -105,10 +171,26 @@ async function vSiswa(){
     $('sm').innerHTML=`<div class="msg ok">${x.dibuat} akun dibuat (password awal: ${esc(x.passwordAwal)}). Dilewati: ${l.sudahAda} sudah punya akun, ${l.kelasTidakValid} kelas tidak valid, ${l.namaTidakValid} nama tidak valid, ${l.nisnTidakValid} NISN tidak valid, ${l.nisnPendek} password &lt; 6 karakter.</div>`;muat()},'Buat akun');
   muat();
 }
+let SW=[],SWL=null;
 async function muat(){
-  const r=await call('ad_siswa_list',{q:$('q').value});if(!r.ok)return $('t').innerHTML=`<tbody><tr><td class="empty">${esc(pesan(r))}</td></tr></tbody>`;
-  $('jml').textContent=r.total+' siswa';
-  $('t').innerHTML='<thead><tr><th>NIS</th><th>NISN</th><th>Nama</th><th>JK</th><th>Kelas</th><th>Absen</th><th>Guru</th><th>Akun</th><th></th></tr></thead><tbody>'+(r.siswa.length?r.siswa.slice(0,400).map(s=>`<tr><td>${esc(s.nis)}</td><td>${esc(s.nisn)}</td><td>${esc(s.nama)}</td><td>${esc(s.jk)}</td><td>${esc(s.kelas)}</td><td>${esc(s.absen)}</td><td>${esc(s.guru)}</td><td>${s.akun?'<span class="badge ok">Terdaftar</span>':'<span class="badge">Belum</span>'}</td><td><button class="btn sm bad" data-n="${esc(s.nisn)}">×</button></td></tr>`).join(''):'<tr><td colspan="9" class="empty">Belum ada data siswa.</td></tr>')+'</tbody>';
+  const r=await call('ad_siswa_list',{});
+  if(!r.ok){$('t').innerHTML=`<tbody><tr><td class="empty">${esc(pesan(r))}</td></tr></tbody>`;return}
+  SW=r.siswa;
+  if(!SWL)SWL=buatDaftar({items:()=>SW,placeholder:'NISN, NIS, nama, kelas…',satuan:'siswa',kosong:'Belum ada data siswa. Impor dari Excel.',kolom:9,
+    kepala:`<thead><tr><th>NIS</th><th>NISN</th><th>Nama</th><th>JK</th><th>Kelas</th><th>Absen</th><th>Guru</th><th>Akun</th><th></th></tr></thead>`,
+    cari:s=>[s.nis,s.nisn,s.nama,s.kelas].join(' '),
+    saring:[
+      {id:'tk',label:'Tingkat',opsi:()=>[['7','Kelas 7'],['8','Kelas 8'],['9','Kelas 9']],cocok:(s,v)=>tingkatDari(s.kelas)===v},
+      {id:'kl',label:'Kelas',opsi:(all,F)=>unik(all.filter(s=>!F.tk||tingkatDari(s.kelas)===F.tk),s=>s.kelas).map(k=>[k,k]),cocok:(s,v)=>s.kelas===v},
+      {id:'ak',label:'Akun murid',opsi:()=>[['ada','Sudah punya akun'],['belum','Belum punya akun']],cocok:(s,v)=>v==='ada'?s.akun:!s.akun},
+      {id:'jk',label:'Jenis kelamin',opsi:()=>[['L','Laki-laki'],['P','Perempuan']],cocok:(s,v)=>String(s.jk).trim().toUpperCase().charAt(0)===v},
+      {id:'dt',label:'Kelengkapan data',opsi:()=>[['nokelas','Kelas kosong / tidak valid'],['noabsen','Nomor absen kosong'],['nonis','NIS kosong'],['nojk','Jenis kelamin kosong']],
+        cocok:(s,v)=>v==='nokelas'?!tingkatDari(s.kelas):v==='noabsen'?!s.absen:v==='nonis'?!s.nis:!String(s.jk).trim()}
+    ],
+    urut:{kelas:['Kelas & absen',(a,b)=>(!a.kelas)-(!b.kelas)||alamiah(a.kelas,b.kelas)||(Number(a.absen)||999)-(Number(b.absen)||999)||alamiah(a.nama,b.nama)],nama:['Nama A-Z',(a,b)=>alamiah(a.nama,b.nama)],nisn:['NISN',(a,b)=>alamiah(a.nisn,b.nisn)]},
+    baris:s=>`<tr><td>${esc(s.nis)}</td><td>${esc(s.nisn)}</td><td>${esc(s.nama)}</td><td>${esc(s.jk)}</td><td>${esc(s.kelas)}</td><td>${esc(s.absen)}</td><td>${esc(s.guru)}</td><td>${s.akun?'<span class="badge ok">Terdaftar</span>':'<span class="badge">Belum</span>'}</td><td><button class="btn sm bad" data-n="${esc(s.nisn)}">×</button></td></tr>`});
+  else SWL.segarkan();
+  $('jml').textContent=r.total>SW.length?'Hanya '+SW.length+' dari '+r.total+' siswa yang dimuat':'';
   $('t').onclick=async e=>{const b=e.target.closest('[data-n]');if(!b||!confirm('Hapus siswa ini dari daftar?'))return;const x=await call('ad_siswa_hapus',{nisn:b.dataset.n});x.ok?muat():alert(pesan(x))};
 }
 let _x;const xlsx=()=>_x||(_x=new Promise((ok,no)=>{if(window.XLSX)return ok();const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=ok;s.onerror=()=>{_x=null;no(new Error('Pustaka Excel gagal dimuat'))};document.head.appendChild(s)}));
