@@ -61,7 +61,7 @@ async function vAkun(peran){
   AK=r.akun;const m=peran==='murid';
   $('view').innerHTML=`<div class="row"><h1 class="grow" style="margin:0">${m?'Akun Murid':'Akun Guru & Admin'} <span class="mut">(${AK.length})</span></h1>
    <input id="q" placeholder="Cari…" style="max-width:220px"><button class="btn" id="add">+ Tambah akun</button></div>
-   ${m?'<p class="mut">Murid mendaftar sendiri di Portal Murid dengan NISN dan password pilihannya. Di sini Anda dapat mengubah data, mengatur ulang password, atau menonaktifkan.</p>':'<p class="mut">Guru tidak dapat mendaftar sendiri; akun dibuat di sini. Isi email agar guru bisa memakai fitur “Lupa password”.</p>'}
+   ${m?'<p class="mut">Akun murid dipakai untuk melihat <b>Hasil Belajarku</b> (login NISN). Tidak ada pendaftaran mandiri: buat akun satu per satu di sini, atau sekaligus lewat Data Siswa &gt; <b>Buat akun murid</b>. Materi dan ulangan tidak memerlukan akun.</p>':'<p class="mut">Guru tidak dapat mendaftar sendiri; akun dibuat di sini. Isi email agar guru bisa memakai fitur “Lupa password”.</p>'}
    <div class="tw" style="margin-top:10px"><table id="t"></table></div>`;
   const tampil=()=>{const q=$('q').value.toLowerCase(),L=AK.filter(a=>!q||[a.username,a.nama,a.email,a.kelas].join(' ').toLowerCase().includes(q)).slice(0,300);
     $('t').innerHTML=`<thead><tr><th>${m?'NISN':'Username'}</th><th>Nama</th><th>${m?'Kelas / Absen':'Peran / Email'}</th>${m?'':'<th>Ulangan</th>'}<th>Status</th><th></th></tr></thead><tbody>`+(L.length?L.map(a=>`<tr><td>${esc(a.username)}</td><td>${esc(a.nama)}</td>
@@ -83,7 +83,7 @@ function formAkun(a,peran){
   modal(`<h2>${baru?'Tambah':'Ubah'} akun ${m?'murid':'guru/admin'}</h2>
    <label>${m?'NISN':'Username'}</label><input name="username" value="${esc(a?a.username:'')}" ${baru?'':'readonly'} required autocomplete="off">
    <label>Nama lengkap</label><input name="nama" value="${esc(a?a.nama:'')}" required maxlength="60">
-   ${m?`<div class="row"><div class="grow"><label>Kelas (mis. 9A)</label><input name="kelas" value="${esc(a?a.kelas:'')}" required maxlength="5"></div><div class="grow"><label>No. absen</label><input name="absen" type="number" min="1" max="99" value="${esc(a?a.absen:'')}" required></div></div>`
+   ${m?`<div class="row"><div class="grow"><label>Kelas (mis. 9A)</label><input name="kelas" value="${esc(a?a.kelas:'')}" required maxlength="5"></div><div class="grow"><label>No. absen (opsional)</label><input name="absen" type="number" min="1" max="99" value="${esc(a?a.absen:'')}"></div></div>`
      :`<label>Email (opsional, untuk lupa password)</label><input name="email" type="email" value="${esc(a?a.email:'')}">
        <label>Peran</label><select name="peran">${['guru','admin'].map(p=>`<option ${a&&a.peran===p?'selected':''}>${p}</option>`).join('')}</select>`}
    ${baru?'<label>Password awal (min. 6 karakter)</label><input name="password" minlength="6" required autocomplete="off">':''}`,
@@ -93,13 +93,16 @@ function formAkun(a,peran){
 
 /* ---------- data siswa ---------- */
 async function vSiswa(){
-  $('view').innerHTML=`<h1>Data Siswa (NISN)</h1><p class="mut">Daftar resmi siswa sekolah. Dipakai untuk memeriksa NISN saat murid mendaftar dan sebagai sumber “Ambil dari Spreadsheet” di Jurnal Guru. Kolom <b>Guru</b> (opsional) membatasi baris itu hanya untuk guru bersangkutan (username/email, pisahkan koma).</p>
-  <div class="card"><div class="row"><button class="btn" id="imp">Impor Excel / CSV</button><button class="btn sec" id="tpl">Unduh format</button><button class="btn sec" id="jr">Tarik dari data jurnal guru</button><button class="btn sec" id="del" style="margin-left:auto;color:var(--bad)">Hapus semua</button></div><input type="file" id="fi" accept=".xlsx,.xls,.csv" hidden><div id="sm"></div></div>
+  $('view').innerHTML=`<h1>Data Siswa (NISN)</h1><p class="mut">Daftar resmi siswa sekolah. Dipakai untuk membuat akun murid dan sebagai sumber “Ambil dari Spreadsheet” di Jurnal Guru. Kolom <b>Guru</b> (opsional) membatasi baris itu hanya untuk guru bersangkutan (username/email, pisahkan koma).</p>
+  <div class="card"><div class="row"><button class="btn" id="imp">Impor Excel / CSV</button><button class="btn sec" id="tpl">Unduh format</button><button class="btn sec" id="jr">Tarik dari data jurnal guru</button><button class="btn" id="bam">Buat akun murid</button><button class="btn sec" id="del" style="margin-left:auto;color:var(--bad)">Hapus semua</button></div><input type="file" id="fi" accept=".xlsx,.xls,.csv" hidden><div id="sm"></div></div>
   <div class="row" style="margin:6px 0"><input id="q" class="grow" placeholder="Cari NISN / nama / kelas…"><span class="mut" id="jml"></span></div><div class="tw"><table id="t"></table></div>`;
   $('q').oninput=muat;$('imp').onclick=()=>$('fi').click();$('fi').onchange=impor;
   $('tpl').onclick=async()=>{await xlsx();const ws=XLSX.utils.aoa_to_sheet([['NIS','NISN','Nama','Jenis Kelamin','Kelas','Absen','Guru'],['1234','0123456789','Contoh Siswa','L','9A','1','']]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siswa');XLSX.writeFile(wb,'Format_Data_Siswa.xlsx')};
   $('jr').onclick=()=>konfirm('Tarik dari data jurnal guru','Semua siswa yang sudah diimpor guru di periode aktif akan ditambahkan ke daftar ini (data yang sudah ada tidak ditimpa).',async()=>{const r=await call('ad_siswa_dari_jurnal',{},{timeout:120000});if(!r.ok)return pesan(r);$('sm').innerHTML=`<div class="msg ok">${r.baru} siswa baru, ${r.ubah} dilengkapi, dari ${r.guru} guru.</div>`;muat()});
   $('del').onclick=()=>konfirm('Hapus semua data siswa?','Hanya daftar NISN yang dihapus. Akun murid tidak ikut terhapus.',async()=>{const r=await call('ad_siswa_hapus',{semua:true,konfirmasi:'HAPUS'});if(!r.ok)return pesan(r);muat()},'HAPUS');
+  $('bam').onclick=()=>modal(`<h2>Buat akun murid dari Data Siswa</h2><p>Akun dibuat untuk semua siswa yang belum punya akun (username = NISN). Siswa tanpa kelas yang valid dilewati.</p><label>Password awal (kosongkan = NISN masing-masing)</label><input name="pw" autocomplete="off" placeholder="min. 6 karakter, atau kosong">`,async v=>{
+    const x=await call('ad_murid_buat',{password:v.pw},{timeout:240000});if(!x.ok)return pesan(x);const l=x.lewat;
+    $('sm').innerHTML=`<div class="msg ok">${x.dibuat} akun dibuat (password awal: ${esc(x.passwordAwal)}). Dilewati: ${l.sudahAda} sudah punya akun, ${l.kelasTidakValid} kelas tidak valid, ${l.namaTidakValid} nama tidak valid, ${l.nisnTidakValid} NISN tidak valid, ${l.nisnPendek} password &lt; 6 karakter.</div>`;muat()},'Buat akun');
   muat();
 }
 async function muat(){
@@ -270,8 +273,6 @@ async function restore(){
 async function vSistem(){
   const r=await call('ad_ringkasan');if(!r.ok)return $('view').innerHTML=`<div class="msg err">${esc(pesan(r))}</div>`;
   $('view').innerHTML=`<h1>Sistem</h1>
-  <div class="card"><h2>Pendaftaran murid</h2><p class="mut">Jika daftar siswa (NISN) sudah diisi, murid hanya bisa mendaftar dengan NISN yang ada di daftar. Aktifkan opsi di bawah untuk mengizinkan NISN apa pun mendaftar (kurang aman: NISN bisa “diduluankan” orang lain).</p>
-   <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="mb" style="width:auto" ${r.murid_bebas?'checked':''}> Izinkan pendaftaran tanpa pemeriksaan daftar NISN</label><div id="sm"></div></div>
   <div class="card"><h2>Ubah password saya</h2><div class="row"><input id="p1" type="password" placeholder="Password lama" class="grow"><input id="p2" type="password" placeholder="Password baru (min. 6)" class="grow"><button class="btn" id="pw">Simpan</button></div><div id="pm"></div></div>
   <div class="card"><h2>Rekap Hasil Belajar murid</h2><p class="mut">Rekap diperbarui otomatis setiap guru menyimpan, sehingga halaman Hasil Belajarku cepat. Bangun ulang rekap bila Anda baru memulihkan backup lama atau memindahkan data dari aplikasi sebelumnya.</p>
    <div class="row"><select id="rp" class="grow"></select><button class="btn" id="rb">Bangun ulang rekap periode ini</button></div><div id="rm"></div></div>
@@ -279,7 +280,6 @@ async function vSistem(){
    <div class="row"><button class="btn bad" id="k1">Kosongkan peserta &amp; hasil</button><button class="btn bad" id="k2">Kosongkan semua ulangan &amp; soal</button></div></div>`;
   $('rp').innerHTML=r.periodes.map(p=>`<option value="${esc(p.id)}" ${p.aktif?'selected':''}>${esc(p.label)}</option>`).join('');
   $('rb').onclick=async()=>{const b=$('rb');b.disabled=true;const x=await call('ad_rekap_bangun',{periode:$('rp').value},{timeout:240000});b.disabled=false;$('rm').innerHTML=x.ok?`<div class="msg ok">Selesai: ${x.guru} guru, ${x.murid} murid.</div>`:`<div class="msg err">${esc(pesan(x))}</div>`};
-  $('mb').onchange=async()=>{const x=await call('ad_set_simpan',{murid_bebas:$('mb').checked?'YA':'TIDAK'});$('sm').innerHTML=x.ok?'<div class="msg ok">Tersimpan.</div>':`<div class="msg err">${esc(pesan(x))}</div>`};
   $('pw').onclick=async()=>{const x=await call('changePassword',{oldPassword:$('p1').value,newPassword:$('p2').value});$('pm').innerHTML=x.ok?'<div class="msg ok">Password diganti.</div>':`<div class="msg err">${esc(pesan(x))}</div>`;if(x.ok){$('p1').value=$('p2').value=''}};
   const kos=mode=>konfirm('Kosongkan data ulangan?','Tindakan ini tidak dapat dibatalkan.',async()=>{const x=await call('ad_kosongkan',{mode,konfirmasi:'KOSONGKAN'});if(!x.ok)return pesan(x);alert(x.peserta+' peserta dan '+x.hasil+' hasil dihapus.')},'KOSONGKAN');
   $('k1').onclick=()=>kos('siswa');$('k2').onclick=()=>kos('semua');
