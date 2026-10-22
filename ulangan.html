@@ -472,7 +472,7 @@ details.analisis summary{cursor:pointer;font-weight:700;padding:.8rem 0}
         </form>
       </div>
     </div>
-    <div class="foot"><span>Data diri diambil dari akunmu. Jika ada yang keliru, hubungi admin sekolah.</span></div>
+    <div class="foot"><span>Pastikan nama, kelas, dan nomor absen benar. Data ini dipakai untuk menilai.</span></div>
   </div>
 </section>
 
@@ -732,7 +732,7 @@ const CONFIG = {
 /* Sesi login terpadu (login di Portal NESACIS). Guru/admin -> panel; murid -> mengerjakan ulangan. */
 const SES = window.NESACIS && NESACIS.session();
 const MODE = SES && SES.user.peran !== 'murid' ? 'staf' : 'murid';
-if (!SES && window.NESACIS) NESACIS.keLogin(/^#(admin|guru)/.test(location.hash) ? 'guru' : 'murid');
+if (!SES && window.NESACIS && /^#(admin|guru)/.test(location.hash)) NESACIS.keLogin('guru');   // siswa TIDAK perlu login; hanya panel guru/admin
 
 /* ID perangkat: satu sesi ulangan hanya boleh ditulis oleh satu perangkat (lihat server: cekPerangkat_). */
 const DEV = (() => { let d = ''; try { d = localStorage.getItem('ulangan_dev') || ''; } catch (e) {}
@@ -803,7 +803,7 @@ async function api(action, data, opt) {
   try {
     const res = await fetch(CONFIG.API_URL, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(Object.assign({ action }, SES ? { token: SES.token } : {}, data || {})), signal: ctl.signal, redirect: 'follow'
+      body: JSON.stringify(Object.assign({ action }, SES && MODE === 'staf' ? { token: SES.token } : {}, data || {})), signal: ctl.signal, redirect: 'follow'
     });
     const j = await res.json();
     if (j && j.auth === false && !diam && !S.active) { NESACIS.clear(); NESACIS.keLogin(MODE === 'staf' ? 'guru' : 'murid'); }
@@ -868,7 +868,7 @@ function pesanGalat(code) {
 const VIEWS = ['view-daftar', 'view-ujian', 'view-selesai', 'view-login', 'view-app'];
 function show(id) { VIEWS.forEach(v => $(v).hidden = (v !== id)); window.scrollTo(0, 0); }
 function route() {
-  if (S.active || !SES) return;
+  if (S.active) return;
   stopAdminTimers();
   if (MODE === 'staf') { A.t = SES.token; A.user = SES.user; showApp(); }
   else { show('view-daftar'); initDaftar(); }
@@ -906,7 +906,7 @@ const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platfor
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
 const fsMasuk = () => { const e = document.documentElement; const f = e.requestFullscreen || e.webkitRequestFullscreen; return f ? Promise.resolve(f.call(e)) : Promise.reject(); };
 const fsKeluar = () => { const f = document.exitFullscreen || document.webkitExitFullscreen; if (fsEl() && f) try { f.call(document); } catch (e) {} };
-const tersimpan = () => { try { const t = JSON.parse(localStorage.getItem('ulangan_sesi')); return t && SES && t.nisn === SES.user.nisn ? t : null; } catch (e) { return null; } };
+const tersimpan = () => { try { return JSON.parse(localStorage.getItem('ulangan_sesi')); } catch (e) { return null; } };
 const NAMA_RE = /^[\p{L}\p{N}][\p{L}\p{M}\p{N}.' -]{2,59}$/u;
 
 /* ---------- kode ulangan & pendaftaran ---------- */
@@ -934,7 +934,6 @@ function tampilForm(c) {
   $('in-kelas').innerHTML = '<option value="">Pilih</option>' + c.kelas.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
   $('in-absen').innerHTML = '<option value="">Pilih no.</option>' + Array.from({ length: c.maxAbsen }, (_, i) => `<option value="${pad2(i + 1)}">${pad2(i + 1)}</option>`).join('');
   $('tutup-box').hidden = !!c.aktif; $('box-pilih').hidden = true; $('form-daftar').hidden = false; $('err-daftar').textContent = '';
-  isiDataAkun(c);
   cekForm(); window.scrollTo(0, 0);
 }
 /* Identitas murid diambil dari akunnya (server juga memakai data akun, bukan isian ini). */
@@ -972,7 +971,7 @@ function initDaftar() {
 }
 
 async function mulaiBaru() {
-  await mulaiSesi({ kode: S.cfg.kode, nama: $('in-nama').value.trim().replace(/\s+/g, ' '), kelas: S.cfg.tingkat + $('in-kelas').value, absen: $('in-absen').value, nisn: SES.user.nisn }, $('err-daftar'), $('btn-mulai'));
+  await mulaiSesi({ kode: S.cfg.kode, nama: $('in-nama').value.trim().replace(/\s+/g, ' '), kelas: S.cfg.tingkat + $('in-kelas').value, absen: $('in-absen').value }, $('err-daftar'), $('btn-mulai'));
 }
 async function lanjutkanSesi() { const t = tersimpan(); if (t) await mulaiSesi(t, $('err-daftar'), $('btn-lanjut')); }
 
@@ -1776,7 +1775,6 @@ $('btn-kosong-semua').addEventListener('click', () => konfirmKosongkan('semua', 
 /* ---------------------------- mulai ---------------------------- */
 (function init() {
   if (!CONFIG.API_URL) { const b = $('banner'); b.hidden = false; b.textContent = 'Aplikasi belum dihubungkan ke database: isi API_URL di bagian atas file ini (lihat PANDUAN.md).'; }
-  if (!SES) return;
   window.addEventListener('hashchange', route);
   route();
 })();
