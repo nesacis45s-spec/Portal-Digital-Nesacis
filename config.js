@@ -4,5 +4,5 @@
    Isi API_URL dengan URL Web App hasil Deploy Apps Script (berakhiran /exec).
    ===================================================================== */
 window.NESACIS_CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycbzKq4v2mCV9dtKDiEdNpDXU99jfqcevAylKu-93TwPYQVQepHDBKdVAMU8OrNTAJvuf/exec'   // contoh: 'https://script.google.com/macros/s/AKfycb.../exec'
+  API_URL: 'https://script.google.com/macros/s/AKfycbxBHhLFStB8t8hz1u1hie04-AROSQAHR6y6EiLbZhPly4USKVUZXjACIsy-8OqTpiZzoQ/exec'   // contoh: 'https://script.google.com/macros/s/AKfycb.../exec'
 };
